@@ -291,7 +291,7 @@ async def drm_handler(bot: Client, m: Message):
             if "acecwply" in url:
                 cmd = f'yt-dlp -o "{name}.%(ext)s" -f "bestvideo[height<={raw_text2}]+bestaudio" --hls-prefer-ffmpeg --no-keep-video --remux-video mkv --no-warning "{url}"'
          
-            elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
+            #elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
                 # Extract contentId from URL
                 #base_url = url
                 
@@ -319,11 +319,61 @@ async def drm_handler(bot: Client, m: Message):
                   #  contentId = contentId.split('?')[0]
                 #if '#' in contentId:
                    # contentId = contentId.split('#')[0]
-                url,contentId=url.split('&')
+             #   url,contentId=url.split('&')
+                
+              #  headers = {
+               #     'host': 'api.classplusapp.com',
+                #    'x-access-token': f'{cptoken}',    
+                 #   'accept-language': 'EN',
+                  #  'api-version': '18',
+                   # 'app-version': '1.4.73.2',
+                   # 'build-number': '35',
+                    #'connection': 'Keep-Alive',
+                   # 'content-type': 'application/json',
+                   # 'device-details': 'Xiaomi_Redmi 7_SDK-32',
+                    #'device-id': 'c28d3cb16bbdac01',
+                    #'region': 'IN',
+                    #'user-agent': 'Mobile-Android',
+                    #'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c',
+                    #'accept-encoding': 'gzip'
+                #}
+                
+                #params = {
+                 #   'contentId': contentId,
+                  #  'offlineDownload': "false"
+                #}
+                
+                 #   res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json().get("url")
+                    
+                    # Check if it's a DRM URL
+                  #  if ("testbook.com" in base_url or "classplusapp.com/drm" in base_url or 
+                   #     "media-cdn.classplusapp.com/drm" in base_url or '/drm/' in base_url):
+                    #    if 'drmUrls' in res and 'manifestUrl' in res['drmUrls']:
+                     #       mpd_url = res['drmUrls']['manifestUrl']
+                      #      mpd, keys = helper.get_mps_and_keys(mpd_url)
+                       #     url = mpd
+                        #    keys_string = " ".join([f"--key {key}" for key in keys])
+                        #else:
+                         #   url = res.get("url", base_url)
+                          #  keys_string = ""
+                    #else:
+                     #   url = res.get("url", base_url)
+                      #  keys_string = ""
+                        
+                    #print(f"ClassPlus API Success - contentId: {contentId[:30]}...")
+                        
+               # except Exception as e:
+                #    print(f"ClassPlus API Error: {e}")
+                 #   print(f"URL: {base_url[:100]}, contentId: {contentId}")
+                  #  # Keep original URL if API fails
+                   # url = base_url
+                   # keys_string = ""
+             elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
+                url, contentId = url.split('&contentHashIdl=')
                 
                 headers = {
                     'host': 'api.classplusapp.com',
-                    'x-access-token': f'{cptoken}',    
+                    'x-access-token': f'{working_token}',    
                     'accept-language': 'EN',
                     'api-version': '18',
                     'app-version': '1.4.73.2',
@@ -342,32 +392,14 @@ async def drm_handler(bot: Client, m: Message):
                     'contentId': contentId,
                     'offlineDownload': "false"
                 }
+
+                res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json()
                 
-                    url = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json().get("url")
+                if "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
+                    url = res['drmUrls']['manifestUrl']
                     
-                    # Check if it's a DRM URL
-                    if ("testbook.com" in base_url or "classplusapp.com/drm" in base_url or 
-                        "media-cdn.classplusapp.com/drm" in base_url or '/drm/' in base_url):
-                        if 'drmUrls' in res and 'manifestUrl' in res['drmUrls']:
-                            mpd_url = res['drmUrls']['manifestUrl']
-                            mpd, keys = helper.get_mps_and_keys(mpd_url)
-                            url = mpd
-                            keys_string = " ".join([f"--key {key}" for key in keys])
-                        else:
-                            url = res.get("url", base_url)
-                            keys_string = ""
-                    else:
-                        url = res.get("url", base_url)
-                        keys_string = ""
-                        
-                    print(f"ClassPlus API Success - contentId: {contentId[:30]}...")
-                        
-                except Exception as e:
-                    print(f"ClassPlus API Error: {e}")
-                    print(f"URL: {base_url[:100]}, contentId: {contentId}")
-                    # Keep original URL if API fails
-                    url = base_url
-                    keys_string = ""
+                else:
+                    url = res["url"]
 
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
                 url = f"https://anonymouspwplayer-ce3f42358cca.herokuapp.com/pw?url={url}&token={pwtoken}"
