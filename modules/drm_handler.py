@@ -368,10 +368,10 @@ async def drm_handler(bot: Client, m: Message):
                   #  # Keep original URL if API fails
                    # url = base_url
                    # keys_string = ""
-             elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
-                url, contentId = url.split('&contentHashIdl=')
+              elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
+                 url, contentId = url.split('&contentHashIdl=')
                 
-                headers = {
+                 headers = {
                     'host': 'api.classplusapp.com',
                     'x-access-token': f'{working_token}',    
                     'accept-language': 'EN',
@@ -386,20 +386,20 @@ async def drm_handler(bot: Client, m: Message):
                     'user-agent': 'Mobile-Android',
                     'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c',
                     'accept-encoding': 'gzip'
-                }
+                    }
                 
                 params = {
                     'contentId': contentId,
                     'offlineDownload': "false"
-                }
+                  }
 
-                res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json()
+                 res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json()
                 
-                if "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
-                    url = res['drmUrls']['manifestUrl']
+                 if "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
+                     url = res['drmUrls']['manifestUrl']
                     
-                else:
-                    url = res["url"]
+                 else:
+                     url = res["url"]
 
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
                 url = f"https://anonymouspwplayer-ce3f42358cca.herokuapp.com/pw?url={url}&token={pwtoken}"
