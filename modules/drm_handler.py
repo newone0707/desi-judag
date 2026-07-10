@@ -281,6 +281,7 @@ async def drm_handler(bot: Client, m: Message):
             # Initialize variables
             keys_string = ""
             appxkey = ""
+            license_url = None
             
             if "visionias" in url:
                 async with ClientSession() as session:
@@ -403,6 +404,7 @@ async def drm_handler(bot: Client, m: Message):
 
                 if "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
                     url = res['drmUrls']['manifestUrl']
+                    license_url = res['drmUrls'].get('licenseUrl')
                 else:
                     url = res["url"]
 
@@ -611,7 +613,7 @@ async def drm_handler(bot: Client, m: Message):
                       (keys_string and "classplusapp" in link0) or '/drm/' in url):
                     prog = await bot.send_message(channel_id, Show, disable_web_page_preview=True)
                     prog1 = await m.reply_text(Show1, disable_web_page_preview=True)
-                    res_file = await helper.decrypt_and_merge_video(url, keys_string, path, name, raw_text2)
+                    res_file = await helper.decrypt_and_merge_video(url, keys_string, path, name, raw_text2, license_url, cptoken)
                     filename = res_file
                     await prog1.delete(True)
                     await prog.delete(True)

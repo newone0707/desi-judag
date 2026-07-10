@@ -130,7 +130,64 @@ def vid_info(info):
     return new_info
 
 
-async def decrypt_and_merge_video(mpd_url, keys_string, output_path, output_name, quality="720"):
+def get_keys_from_mp4(mp4_path, license_url, token):
+    import subprocess
+    import requests
+    from pywidevine.cdm import Cdm
+    from pywidevine.device import Device, DeviceTypes
+    from pywidevine.pssh import PSSH
+
+    result = subprocess.run(["mp4dump", mp4_path], capture_output=True, text=True)
+    pssh_hex = None
+    lines = result.stdout.splitlines()
+    for i, line in enumerate(lines):
+        if "[system id] = [ed ef 8b a9 79 d6 4a ce a3 c8 27 dc d5 1d 21 ed]" in line:
+            for j in range(i+1, min(i+10, len(lines))):
+                if "[data] = " in lines[j]:
+                    pssh_hex = lines[j].split("[data] = ")[1].replace("[", "").replace("]", "").replace(" ", "").strip()
+                    break
+            if pssh_hex:
+                break
+    
+    if not pssh_hex:
+        print("No Widevine PSSH found in mp4")
+        return ""
+    
+    pssh_bytes = bytes.fromhex(pssh_hex)
+    pssh_obj = PSSH(pssh_bytes)
+    
+    device = Device(
+        type_=DeviceTypes.ANDROID,
+        security_level=3,
+        client_id=open("device_client_id_blob", "rb").read(),
+        private_key=open("device_private_key.txt", "rb").read()
+    )
+    cdm = Cdm.from_device(device)
+    session_id = cdm.open()
+    challenge = cdm.get_license_challenge(session_id, pssh_obj)
+    
+    headers = {
+        'host': 'api.classplusapp.com',
+        'x-access-token': token,
+        'user-agent': 'Mobile-Android',
+        'content-type': 'application/json'
+    }
+    r = requests.post(license_url, data=challenge, headers=headers)
+    if r.status_code != 200:
+        cdm.close(session_id)
+        print(f"License API failed: {r.status_code} {r.text}")
+        return ""
+        
+    cdm.parse_license(session_id, r.content)
+    keys = []
+    for key in cdm.get_keys(session_id):
+        if key.type == 'CONTENT':
+            keys.append(f"--key {key.kid.hex}:{key.key.hex}")
+    cdm.close(session_id)
+    return " ".join(keys)
+
+
+async def decrypt_and_merge_video(mpd_url, keys_string, output_path, output_name, quality="720", license_url=None, token=None):
     try:
         output_path = Path(output_path)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -145,6 +202,15 @@ async def decrypt_and_merge_video(mpd_url, keys_string, output_path, output_name
 
         video_decrypted = False
         audio_decrypted = False
+
+        for data in avDir:
+            if data.suffix == ".mp4" and not keys_string and license_url and token:
+                print("Extracting Widevine keys...")
+                try:
+                    keys_string = get_keys_from_mp4(str(data), license_url, token)
+                    print(f"Extracted keys: {keys_string}")
+                except Exception as e:
+                    print(f"Failed to extract keys: {e}")
 
         for data in avDir:
             if data.suffix == ".mp4" and not video_decrypted:

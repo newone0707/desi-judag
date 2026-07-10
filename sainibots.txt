@@ -42,6 +42,7 @@ pyopenssl
 wget
 bs4
 beautifulsoup4
+pywidevine
 reportlab
 pytube
 google-auth
