@@ -69,7 +69,7 @@ async def drm_handler(bot: Client, m: Message):
         path = f"./downloads/{m.chat.id}"
         with open(x, "r") as f:
             content = f.read()
-        lines = content.split("\n")
+        lines = content.splitlines()
         os.remove(x)
     elif m.text and "://" in m.text:
         lines = [m.text]
@@ -369,7 +369,10 @@ async def drm_handler(bot: Client, m: Message):
                    # url = base_url
                    # keys_string = ""
             elif 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
-                url, contentId = url.split('&contentHashIdl=')
+                if '&contentHashIdl=' in url:
+                    url, contentId = url.split('&contentHashIdl=')
+                else:
+                    contentId = url.split('/')[-1].split('?')[0] # Fallback ID
                 
                 headers = {
                     'host': 'api.classplusapp.com',
@@ -395,6 +398,9 @@ async def drm_handler(bot: Client, m: Message):
 
                 res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json()
                 
+                if "drmUrls" not in res and "url" not in res:
+                    raise Exception(f"Classplus API Error: {res.get('message', res.get('error', 'Unknown Error'))}")
+
                 if "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url:
                     url = res['drmUrls']['manifestUrl']
                 else:
@@ -550,9 +556,9 @@ async def drm_handler(bot: Client, m: Message):
                             
                     else:
                         try:
-                            cmd = f'yt-dlp -o "{namef}.pdf" "{url}"'
-                            download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                            os.system(download_cmd)
+                            res = requests.get(url)
+                            with open(f'{namef}.pdf', 'wb') as file:
+                                file.write(res.content)
                             copy = await bot.send_document(chat_id=channel_id, document=f'{namef}.pdf', caption=cc1)
                             count += 1
                             os.remove(f'{namef}.pdf')
