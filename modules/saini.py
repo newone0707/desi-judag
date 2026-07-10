@@ -214,27 +214,37 @@ async def decrypt_and_merge_video(mpd_url, keys_string, output_path, output_name
 
         for data in avDir:
             if data.suffix == ".mp4" and not video_decrypted:
-                cmd2 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/video.mp4"'
+                if keys_string:
+                    cmd2 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/video.mp4"'
+                else:
+                    cmd2 = f'cp "{data}" "{output_path}/video.mp4"'
                 print(f"Running command: {cmd2}")
                 os.system(cmd2)
                 if (output_path / "video.mp4").exists():
                     video_decrypted = True
                 data.unlink()
             elif data.suffix == ".m4a" and not audio_decrypted:
-                cmd3 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/audio.m4a"'
+                if keys_string:
+                    cmd3 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/audio.m4a"'
+                else:
+                    cmd3 = f'cp "{data}" "{output_path}/audio.m4a"'
                 print(f"Running command: {cmd3}")
                 os.system(cmd3)
                 if (output_path / "audio.m4a").exists():
                     audio_decrypted = True
                 data.unlink()
 
-        if not video_decrypted or not audio_decrypted:
-            raise FileNotFoundError("Decryption failed: video or audio file not found.")
+        if not video_decrypted:
+            raise FileNotFoundError("Decryption failed: video file not found.")
 
-        cmd4 = f'ffmpeg -i "{output_path}/video.mp4" -i "{output_path}/audio.m4a" -c copy "{output_path}/{output_name}.mp4"'
-        print(f"Running command: {cmd4}")
-        os.system(cmd4)
-        if (output_path / "video.mp4").exists():
+        if audio_decrypted:
+            cmd4 = f'ffmpeg -i "{output_path}/video.mp4" -i "{output_path}/audio.m4a" -c copy "{output_path}/{output_name}.mp4"'
+            print(f"Running command: {cmd4}")
+            os.system(cmd4)
+            (output_path / "video.mp4").unlink()
+            (output_path / "audio.m4a").unlink()
+        else:
+            os.system(f'cp "{output_path}/video.mp4" "{output_path}/{output_name}.mp4"')
             (output_path / "video.mp4").unlink()
         if (output_path / "audio.m4a").exists():
             (output_path / "audio.m4a").unlink()

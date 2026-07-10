@@ -610,7 +610,7 @@ async def drm_handler(bot: Client, m: Message):
                     continue  
 
                 elif ('drmcdni' in url or 'drm/wv' in url or 'drm/common' in url or 
-                      (keys_string and "classplusapp" in link0) or '/drm/' in url):
+                      "classplusapp" in link0 or '/drm/' in url):
                     prog = await bot.send_message(channel_id, Show, disable_web_page_preview=True)
                     prog1 = await m.reply_text(Show1, disable_web_page_preview=True)
                     res_file = await helper.decrypt_and_merge_video(url, keys_string, path, name, raw_text2, license_url, cptoken)
