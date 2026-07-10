@@ -134,7 +134,7 @@ def get_keys_from_mp4(mp4_path, license_url, token):
     import subprocess
     import requests
     from pywidevine.cdm import Cdm
-    from pywidevine.device import Device, DeviceTypes
+    from pywidevine.device import Device
     from pywidevine.pssh import PSSH
 
     result = subprocess.run(["mp4dump", mp4_path], capture_output=True, text=True)
@@ -156,12 +156,22 @@ def get_keys_from_mp4(mp4_path, license_url, token):
     pssh_bytes = bytes.fromhex(pssh_hex)
     pssh_obj = PSSH(pssh_bytes)
     
-    device = Device(
-        type_=DeviceTypes.ANDROID,
-        security_level=3,
-        client_id=open("device_client_id_blob", "rb").read(),
-        private_key=open("device_private_key.txt", "rb").read()
-    )
+    device_args = {
+        "client_id": open("device_client_id_blob", "rb").read(),
+        "private_key": open("device_private_key.txt", "rb").read()
+    }
+    
+    try:
+        from pywidevine.device import DeviceTypes
+        device_args["type_"] = DeviceTypes.ANDROID
+    except ImportError:
+        device_args["type_"] = 2
+
+    try:
+        device = Device(**device_args, security_level=3)
+    except TypeError:
+        device_args.pop("type_", None)
+        device = Device(**device_args)
     cdm = Cdm.from_device(device)
     session_id = cdm.open()
     challenge = cdm.get_license_challenge(session_id, pssh_obj)
