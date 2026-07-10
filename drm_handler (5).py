@@ -343,7 +343,7 @@ async def drm_handler(bot: Client, m: Message):
                   #  'offlineDownload': "false"
                 #}
                 
-                 #   res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json().get("url")
+                 #   res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params=params, headers=headers).json()
                     
                     # Check if it's a DRM URL
                   #  if ("testbook.com" in base_url or "classplusapp.com/drm" in base_url or 
