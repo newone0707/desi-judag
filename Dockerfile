@@ -1,5 +1,5 @@
-# Use a Python 3.12.3 Alpine base image
-FROM python:3.12-alpine3.20
+# Use a Python 3.10 Alpine base image
+FROM python:3.10-alpine
 
 # Set the working directory
 WORKDIR /app
@@ -17,16 +17,16 @@ RUN apk add --no-cache \
     make \
     g++ \
     cmake && \
-    wget -q https://github.com/axiomatic-systems/Bento4/archive/v1.6.0-639.zip && \
-    unzip v1.6.0-639.zip && \
-    cd Bento4-1.6.0-639 && \
+    wget -q https://github.com/axiomatic-systems/Bento4/archive/v1.6.0-641.zip && \
+    unzip v1.6.0-641.zip && \
+    cd Bento4-1.6.0-641 && \
     mkdir build && \
     cd build && \
     cmake .. && \
     make -j$(nproc) && \
     cp mp4decrypt /usr/local/bin/ &&\
     cd ../.. && \
-    rm -rf Bento4-1.6.0-639 v1.6.0-639.zip
+    rm -rf Bento4-1.6.0-641 v1.6.0-641.zip
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --upgrade pip \
