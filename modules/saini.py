@@ -181,10 +181,11 @@ def get_keys_from_mp4(mp4_path, license_url, token, mpd_url=None):
         device_args["type_"] = 2
 
     try:
-        device = Device(**device_args, security_level=3)
-    except TypeError:
+        device = Device(**device_args, security_level=3, flags=None)
+    except TypeError as e:
+        print(f"Device init error: {e}")
         device_args.pop("type_", None)
-        device = Device(**device_args)
+        device = Device(**device_args, flags=None)
     cdm = Cdm.from_device(device)
     session_id = cdm.open()
     challenge = cdm.get_license_challenge(session_id, pssh_obj)
