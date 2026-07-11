@@ -203,6 +203,16 @@ def get_keys_from_mp4(mp4_path, license_url, token, mpd_url=None):
         return ""
         
     try:
+        from pywidevine.license_protocol_pb2 import SignedMessage, License
+        sm = SignedMessage()
+        sm.ParseFromString(r.content)
+        lic = License()
+        lic.ParseFromString(sm.msg)
+        returned_req_id = lic.id.request_id
+        session = cdm.sessions[session_id]
+        if returned_req_id and returned_req_id not in session.context:
+            original_context = list(session.context.values())[0]
+            session.context[returned_req_id] = original_context
         cdm.parse_license(session_id, r.content)
     except Exception as e:
         print(f"License parse error: {e}. API returned: {r.content}", flush=True)
