@@ -191,18 +191,23 @@ def get_keys_from_mp4(mp4_path, license_url, token, mpd_url=None):
     challenge = cdm.get_license_challenge(session_id, pssh_obj)
     
     headers = {
-        'host': 'api.classplusapp.com',
         'x-access-token': token,
         'user-agent': 'Mobile-Android',
-        'content-type': 'application/json'
+        'content-type': 'application/octet-stream'
     }
+    print(f"Requesting license from {license_url}...", flush=True)
     r = requests.post(license_url, data=challenge, headers=headers)
     if r.status_code != 200:
         cdm.close(session_id)
-        print(f"License API failed: {r.status_code} {r.text}")
+        print(f"License API failed: {r.status_code} {r.text}", flush=True)
         return ""
         
-    cdm.parse_license(session_id, r.content)
+    try:
+        cdm.parse_license(session_id, r.content)
+    except Exception as e:
+        print(f"License parse error: {e}. API returned: {r.content}", flush=True)
+        cdm.close(session_id)
+        return ""
     keys = []
     for key in cdm.get_keys(session_id):
         if key.type == 'CONTENT':
