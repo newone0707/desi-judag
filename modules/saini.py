@@ -130,27 +130,40 @@ def vid_info(info):
     return new_info
 
 
-def get_keys_from_mp4(mp4_path, license_url, token):
+def get_keys_from_mp4(mp4_path, license_url, token, mpd_url=None):
     import subprocess
     import requests
+    import re
+    import base64
     from pywidevine.cdm import Cdm
     from pywidevine.device import Device
     from pywidevine.pssh import PSSH
 
-    result = subprocess.run(["mp4dump", mp4_path], capture_output=True, text=True)
     pssh_hex = None
-    lines = result.stdout.splitlines()
-    for i, line in enumerate(lines):
-        if "[system id] = [ed ef 8b a9 79 d6 4a ce a3 c8 27 dc d5 1d 21 ed]" in line:
-            for j in range(i+1, min(i+10, len(lines))):
-                if "[data] = " in lines[j]:
-                    pssh_hex = lines[j].split("[data] = ")[1].replace("[", "").replace("]", "").replace(" ", "").strip()
+    
+    if mpd_url:
+        try:
+            manifest = requests.get(mpd_url).text
+            match = re.search(r'<cenc:pssh[^>]*>([^<]+)</cenc:pssh>', manifest)
+            if match:
+                pssh_hex = base64.b64decode(match.group(1)).hex()
+        except Exception:
+            pass
+            
+    if not pssh_hex and mp4_path:
+        result = subprocess.run(["mp4dump", mp4_path], capture_output=True, text=True)
+        lines = result.stdout.splitlines()
+        for i, line in enumerate(lines):
+            if "[system id] = [ed ef 8b a9 79 d6 4a ce a3 c8 27 dc d5 1d 21 ed]" in line:
+                for j in range(i+1, min(i+10, len(lines))):
+                    if "[data] = " in lines[j]:
+                        pssh_hex = lines[j].split("[data] = ")[1].replace("[", "").replace("]", "").replace(" ", "").strip()
+                        break
+                if pssh_hex:
                     break
-            if pssh_hex:
-                break
     
     if not pssh_hex:
-        print("No Widevine PSSH found in mp4")
+        print("No Widevine PSSH found in mp4 or mpd")
         return ""
     
     pssh_bytes = bytes.fromhex(pssh_hex)
@@ -192,7 +205,7 @@ def get_keys_from_mp4(mp4_path, license_url, token):
     keys = []
     for key in cdm.get_keys(session_id):
         if key.type == 'CONTENT':
-            keys.append(f"--key {key.kid.hex}:{key.key.hex}")
+            keys.append(f"--key {key.kid.hex}:{key.key.hex()}")
     cdm.close(session_id)
     return " ".join(keys)
 
@@ -217,9 +230,9 @@ async def decrypt_and_merge_video(url, keys_string, path, name, raw_text2, licen
     if ("classplusapp" in url or license_url) and not keys_string:
         print("Extracting Widevine keys...", flush=True)
         for data in avDir:
-            if data.suffix == ".mp4":
+            if data.suffix in [".mp4", ".m4a"]:
                 try:
-                    keys_string = get_keys_from_mp4(str(data), license_url, cptoken)
+                    keys_string = get_keys_from_mp4(str(data), license_url, cptoken, mpd_url=url)
                     if keys_string:
                         print(f"Extracted keys: {keys_string}", flush=True)
                         break
