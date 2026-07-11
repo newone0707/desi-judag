@@ -1,4 +1,4 @@
-﻿FROM python:3.10-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     && wget -q https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip \
     && unzip Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip \
     && cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/mp4decrypt /usr/local/bin/ \
+    && cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/mp4dump /usr/local/bin/ \
     && rm -rf Bento4-SDK-1-6-0-641.x86_64-unknown-linux* \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
