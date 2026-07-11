@@ -209,8 +209,8 @@ def get_keys_from_mp4(mp4_path, license_url, token, mpd_url=None):
         lic = License()
         lic.ParseFromString(sm.msg)
         returned_req_id = lic.id.request_id
-        session = cdm.sessions[session_id]
-        if returned_req_id and returned_req_id not in session.context:
+        session = cdm._Cdm__sessions.get(session_id)
+        if session and returned_req_id and returned_req_id not in session.context:
             original_context = list(session.context.values())[0]
             session.context[returned_req_id] = original_context
         cdm.parse_license(session_id, r.content)
