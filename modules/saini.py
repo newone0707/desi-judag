@@ -197,228 +197,79 @@ def get_keys_from_mp4(mp4_path, license_url, token):
     return " ".join(keys)
 
 
-async def decrypt_and_merge_video(mpd_url, keys_string, output_path, output_name, quality="720", license_url=None, token=None):
-    try:
-        output_path = Path(output_path)
-        output_path.mkdir(parents=True, exist_ok=True)
+async def decrypt_and_merge_video(url, keys_string, path, name, raw_text2, license_url, cptoken):
+    import subprocess
+    import shutil
+    import os
+    from pathlib import Path
+    import asyncio
+    output_path = Path(path) / "downloads" / name
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_name = name.split(".mp4")[0]
 
-        cmd1 = f'yt-dlp -f "bv[height<={quality}]+ba/b" -o "{output_path}/file.%(ext)s" --allow-unplayable-format --no-check-certificate --external-downloader aria2c "{mpd_url}"'
-        print(f"Running command: {cmd1}")
-        os.system(cmd1)
-        
-        avDir = list(output_path.iterdir())
-        print(f"Downloaded files: {avDir}")
-        print("Decrypting")
+    cmd1 = f'yt-dlp -f "bv[height<=480]+ba/b" -o "{output_path}/file.%(ext)s" --allow-unplayable-format --no-check-certificate --external-downloader aria2c "{url}"'
+    print(f"Running command: {cmd1}", flush=True)
+    os.system(cmd1)
 
-        video_decrypted = False
-        audio_decrypted = False
+    avDir = list(output_path.glob("file.*"))
+    print(f"Downloaded files: {avDir}", flush=True)
 
+    if ("classplusapp" in url or license_url) and not keys_string:
+        print("Extracting Widevine keys...", flush=True)
         for data in avDir:
-            if data.suffix == ".mp4" and not keys_string and license_url and token:
-                print("Extracting Widevine keys...")
+            if data.suffix == ".mp4":
                 try:
-                    keys_string = get_keys_from_mp4(str(data), license_url, token)
-                    print(f"Extracted keys: {keys_string}")
+                    keys_string = get_keys_from_mp4(str(data), license_url, cptoken)
+                    if keys_string:
+                        print(f"Extracted keys: {keys_string}", flush=True)
+                        break
                 except Exception as e:
-                    print(f"Failed to extract keys: {e}")
+                    print(f"Failed to extract keys: {e}", flush=True)
 
-        for data in avDir:
-            if data.suffix == ".mp4" and not video_decrypted:
-                if keys_string:
-                    cmd2 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/video.mp4"'
-                else:
-                    cmd2 = f'cp "{data}" "{output_path}/video.mp4"'
-                print(f"Running command: {cmd2}")
-                os.system(cmd2)
-                if (output_path / "video.mp4").exists():
-                    video_decrypted = True
-                data.unlink()
-            elif data.suffix == ".m4a" and not audio_decrypted:
-                if keys_string:
-                    cmd3 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/audio.m4a"'
-                else:
-                    cmd3 = f'cp "{data}" "{output_path}/audio.m4a"'
-                print(f"Running command: {cmd3}")
-                os.system(cmd3)
-                if (output_path / "audio.m4a").exists():
-                    audio_decrypted = True
-                data.unlink()
+    video_decrypted = False
+    audio_decrypted = False
 
-        if not video_decrypted:
-            raise FileNotFoundError("Decryption failed: video file not found.")
+    for data in avDir:
+        if data.suffix == ".mp4" and not video_decrypted:
+            if keys_string:
+                cmd2 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/video.mp4"'
+            else:
+                cmd2 = f'cp "{data}" "{output_path}/video.mp4"'
+            print(f"Running command: {cmd2}", flush=True)
+            os.system(cmd2)
+            if (output_path / "video.mp4").exists():
+                video_decrypted = True
+            data.unlink()
+        elif data.suffix == ".m4a" and not audio_decrypted:
+            if keys_string:
+                cmd3 = f'mp4decrypt {keys_string} --show-progress "{data}" "{output_path}/audio.m4a"'
+            else:
+                cmd3 = f'cp "{data}" "{output_path}/audio.m4a"'
+            print(f"Running command: {cmd3}", flush=True)
+            os.system(cmd3)
+            if (output_path / "audio.m4a").exists():
+                audio_decrypted = True
+            data.unlink()
 
-        if audio_decrypted:
-            cmd4 = f'ffmpeg -i "{output_path}/video.mp4" -i "{output_path}/audio.m4a" -c copy "{output_path}/{output_name}.mp4"'
-            print(f"Running command: {cmd4}")
-            os.system(cmd4)
-            (output_path / "video.mp4").unlink()
-            (output_path / "audio.m4a").unlink()
-        else:
-            os.system(f'cp "{output_path}/video.mp4" "{output_path}/{output_name}.mp4"')
+    if not video_decrypted:
+        raise FileNotFoundError("Decryption failed: video file not found.")
+
+    if audio_decrypted:
+        cmd4 = f'ffmpeg -i "{output_path}/video.mp4" -i "{output_path}/audio.m4a" -c copy "{output_path}/{output_name}.mp4"'
+        print(f"Running command: {cmd4}", flush=True)
+        os.system(cmd4)
+        if (output_path / "video.mp4").exists():
             (output_path / "video.mp4").unlink()
         if (output_path / "audio.m4a").exists():
             (output_path / "audio.m4a").unlink()
-        
-        filename = output_path / f"{output_name}.mp4"
-
-        if not filename.exists():
-            raise FileNotFoundError("Merged video file not found.")
-
-        cmd5 = f'ffmpeg -i "{filename}" 2>&1 | grep "Duration"'
-        duration_info = os.popen(cmd5).read()
-        print(f"Duration info: {duration_info}")
-
-        return str(filename)
-
-    except Exception as e:
-        print(f"Error during decryption and merging: {str(e)}")
-        raise
-
-async def run(cmd):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE)
-
-    stdout, stderr = await proc.communicate()
-
-    print(f'[{cmd!r} exited with {proc.returncode}]')
-    if proc.returncode == 1:
-        return False
-    if stdout:
-        return f'[stdout]\n{stdout.decode()}'
-    if stderr:
-        return f'[stderr]\n{stderr.decode()}'
-
-    
-
-def old_download(url, file_name, chunk_size = 1024 * 10):
-    if os.path.exists(file_name):
-        os.remove(file_name)
-    r = requests.get(url, allow_redirects=True, stream=True)
-    with open(file_name, 'wb') as fd:
-        for chunk in r.iter_content(chunk_size=chunk_size):
-            if chunk:
-                fd.write(chunk)
-    return file_name
-
-
-def human_readable_size(size, decimal_places=2):
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
-        if size < 1024.0 or unit == 'PB':
-            break
-        size /= 1024.0
-    return f"{size:.{decimal_places}f} {unit}"
-
-
-def time_name():
-    date = datetime.date.today()
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H%M%S")
-    return f"{date} {current_time}.mp4"
-
-
-async def download_video(url,cmd, name):
-    download_cmd = f'{cmd} -R 25 --fragment-retries 25 --external-downloader aria2c --downloader-args "aria2c: -x 16 -j 32"'
-    global failed_counter
-    print(download_cmd)
-    logging.info(download_cmd)
-    k = subprocess.run(download_cmd, shell=True)
-    if "visionias" in cmd and k.returncode != 0 and failed_counter <= 10:
-        failed_counter += 1
-        await asyncio.sleep(5)
-        await download_video(url, cmd, name)
-    failed_counter = 0
-    try:
-        if os.path.isfile(name):
-            return name
-        elif os.path.isfile(f"{name}.webm"):
-            return f"{name}.webm"
-        name = name.split(".")[0]
-        if os.path.isfile(f"{name}.mkv"):
-            return f"{name}.mkv"
-        elif os.path.isfile(f"{name}.mp4"):
-            return f"{name}.mp4"
-        elif os.path.isfile(f"{name}.mp4.webm"):
-            return f"{name}.mp4.webm"
-
-        return name
-    except FileNotFoundError as exc:
-        return os.path.isfile.splitext[0] + "." + "mp4"
-
-
-async def send_doc(bot: Client, m: Message, cc, ka, cc1, prog, count, name, channel_id):
-    # ✅ Truncate caption before sending
-    safe_caption = truncate_caption(cc1)
-    reply = await bot.send_message(channel_id, f"Downloading pdf:\n<pre><code>{name}</code></pre>")
-    time.sleep(1)
-    start_time = time.time()
-    await bot.send_document(ka, caption=safe_caption)
-    count+=1
-    await reply.delete (True)
-    time.sleep(1)
-    os.remove(ka)
-    time.sleep(3) 
-
-
-def decrypt_file(file_path, key):  
-    if not os.path.exists(file_path): 
-        return False  
-
-    with open(file_path, "r+b") as f:  
-        num_bytes = min(28, os.path.getsize(file_path))  
-        with mmap.mmap(f.fileno(), length=num_bytes, access=mmap.ACCESS_WRITE) as mmapped_file:  
-            for i in range(num_bytes):  
-                mmapped_file[i] ^= ord(key[i]) if i < len(key) else i 
-    return True  
-
-async def download_and_decrypt_video(url, cmd, name, key):  
-    video_path = await download_video(url, cmd, name)  
-    
-    if video_path:  
-        decrypted = decrypt_file(video_path, key)  
-        if decrypted:  
-            print(f"File {video_path} decrypted successfully.")  
-            return video_path  
-        else:  
-            print(f"Failed to decrypt {video_path}.")  
-            return None  
-
-async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, name, prog, channel_id):
-    subprocess.run(f'ffmpeg -i "{filename}" -ss 00:00:10 -vframes 1 "{filename}.jpg"', shell=True)
-    await prog.delete (True)
-    reply1 = await bot.send_message(channel_id, f"**📩 Uploading Video 📩:-**\n<blockquote>**{name}**</blockquote>")
-    reply = await m.reply_text(f"**Generate Thumbnail:**\n<blockquote>**{name}**</blockquote>")
-    try:
-        if thumb == "/d":
-            thumbnail = f"{filename}.jpg"
-        else:
-            thumbnail = thumb  
-        
-        if vidwatermark == "/d":
-            w_filename = f"{filename}"
-        else:
-            w_filename = f"w_{filename}"
-            font_path = "vidwater.ttf"
-            subprocess.run(
-                f'ffmpeg -i "{filename}" -vf "drawtext=fontfile={font_path}:text=\'{vidwatermark}\':fontcolor=white@0.3:fontsize=h/6:x=(w-text_w)/2:y=(h-text_h)/2" -codec:a copy "{w_filename}"',
-                shell=True
-            )
+    else:
+        cmd4 = f'cp "{output_path}/video.mp4" "{output_path}/{output_name}.mp4"'
+        print(f"Running command: {cmd4}", flush=True)
+        os.system(cmd4)
+        if (output_path / "video.mp4").exists():
+            (output_path / "video.mp4").unlink()
             
-    except Exception as e:
-        await m.reply_text(str(e))
+    res_file = str(output_path / f"{output_name}.mp4")
+    return res_file
 
-    dur = int(duration(w_filename))
-    start_time = time.time()
 
-    # ✅ TRUNCATE CAPTION BEFORE SENDING (Fixes MEDIA_CAPTION_TOO_LONG error)
-    safe_caption = truncate_caption(cc)
-
-    try:
-        await bot.send_video(channel_id, w_filename, caption=safe_caption, supports_streaming=True, height=720, width=1280, thumb=thumbnail, duration=dur, progress=progress_bar, progress_args=(reply, start_time))
-    except Exception:
-        await bot.send_document(channel_id, w_filename, caption=safe_caption, progress=progress_bar, progress_args=(reply, start_time))
-    os.remove(w_filename)
-    await reply.delete(True)
-    await reply1.delete(True)
-    os.remove(f"{filename}.jpg")
